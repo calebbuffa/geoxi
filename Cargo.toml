@@ -1,0 +1,61 @@
+[package]
+name = "geoxi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "Apache-2.0"
+description = "Geospatial geometry library backed by GEOS"
+readme = "README.md"
+keywords = ["geos", "geometry", "geospatial", "gis", "topology"]
+categories = ["science::geo"]
+repository = "https://github.com/calebbuffa/geoxi"
+
+[features]
+# Default: build GEOS from pinned source and link it statically, so the
+# resulting binary is self-contained and ships anywhere. Requires CMake and a
+# C++ compiler at *build* time only.
+default = ["v3_14_0"]
+# Opt out of the self-contained build and link a GEOS already installed on the
+# machine, located via GEOS_DIR, vcpkg, or pkg-config. The resulting binary
+# then depends on that installation.
+system = ["v3_14_0"]
+# Optional interop. `glam` and `nalgebra` are zero-copy; `geo-types` is not.
+glam = ["dep:glam"]
+nalgebra = ["dep:nalgebra"]
+geo-types = ["dep:geo-types"]
+# The GEOS API level geoxi targets. This is not a user knob: it must match the
+# version pinned in native/versions.toml, which build.rs enforces. It exists as
+# a feature only because that is how `geos-sys` selects its bindings.
+v3_14_0 = ["geos-sys/v3_14_0"]
+
+[dependencies]
+# `dox` makes geos-sys emit declarations only and no link directives; geoxi's
+# own build script provisions and links GEOS so it can control the C++ runtime.
+# The version feature must match the GEOS pinned in native/versions.toml -
+# build.rs asserts this.
+geos-sys = { version = "2.0.9", default-features = false, features = [
+    "dox",
+    "v3_14_0",
+] }
+libc = "0.2"
+thiserror = "2.0"
+
+glam = { version = "0.30", optional = true, default-features = false, features = ["std"] }
+nalgebra = { version = "0.34", optional = true, default-features = false, features = ["std"] }
+geo-types = { version = "0.7", optional = true }
+
+[build-dependencies]
+# Native provisioning: pinned + checksummed source, a cached build tree, CMake,
+# and system discovery. GEOS ships .tar.bz2, so that format is requested
+# explicitly and the default .tar.gz support is dropped.
+woodshed = { version = "0.1", default-features = false, features = [
+    "manifest",
+    "download",
+    "tar-bz2",
+    "cmake",
+    "vcpkg",
+    "pkg-config",
+] }
+
+[package.metadata.docs.rs]
+all-features = true
