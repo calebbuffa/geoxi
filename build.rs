@@ -24,17 +24,19 @@
 //!
 //! 1. If `DOCS_RS` is set: emit nothing (rustdoc only needs an rlib).
 //! 2. If the `system` feature is enabled: link an installed GEOS found via
-//!    `GEOS_DIR`, vcpkg, or pkg-config. Opt-in, and *not* self-contained - the
-//!    resulting binary depends on that installation.
-//! 3. Otherwise (the default): build vendored GEOS from source and link it
-//!    statically.
+//!    `GEOS_DIR`, vcpkg, or pkg-config. Opt-in, and not self-contained.
+//! 3. Otherwise build vendored GEOS from source: as shared libraries by default
+//!    (`dynamic`, LGPL-friendly), or linked statically with the `static`
+//!    feature, which prints a licensing warning.
 //!
-//! The from-source path is the default precisely because it is the only one
-//! that works on a machine with no GEOS installed.
+//! The from-source path is the default because it is the only one that works
+//! on a machine with no GEOS installed.
 
 use std::env;
 use std::path::{Path, PathBuf};
-use woodshed::{BuildKey, Cache, CmakeBuild, Manifest, probe};
+use woodshed::{
+    BuildKey, Cache, CmakeBuild, Linkage, Manifest, emit_link, link_cpp_runtime_for, probe,
+};
 
 /// Files that must exist in an install prefix for a build to count as
 /// finished. A prefix missing any of them is the debris of an interrupted
@@ -54,11 +56,26 @@ fn main() {
 
     // Cargo exposes features to build scripts only as CARGO_FEATURE_* env
     // vars; `cfg!(feature = ...)` would silently always be false here.
-    if env::var_os("CARGO_FEATURE_SYSTEM").is_some() && try_system_geos() {
+    let has = |feature: &str| env::var_os(format!("CARGO_FEATURE_{feature}")).is_some();
+    if has("STATIC") && has("DYNAMIC") {
+        fail("the `static` and `dynamic` features are mutually exclusive");
+    }
+
+    if has("SYSTEM") && try_system_geos() {
         return;
     }
 
-    build_vendored_geos();
+    let linkage = if has("STATIC") {
+        println!(
+            "cargo:warning=geoxi: GEOS (LGPL-2.1) is linked statically. Distributing the \
+             resulting binary carries LGPL relinking obligations; see \
+             THIRD-PARTY-NOTICES.md. Use the default `dynamic` feature to avoid this."
+        );
+        Linkage::Static
+    } else {
+        Linkage::Dynamic
+    };
+    build_vendored_geos(linkage);
 }
 
 /// Try each system-discovery strategy in turn. Each degrades to "not found"
@@ -125,7 +142,7 @@ fn link_from_prefix(prefix: &Path) {
 }
 
 /// Download, verify, extract, configure, build, and link GEOS from source.
-fn build_vendored_geos() {
+fn build_vendored_geos(linkage: Linkage) {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let manifest = Manifest::load_default(&manifest_dir)
         .unwrap_or_else(|error| fail(&format!("cannot load native/versions.toml: {error}")));
@@ -144,7 +161,8 @@ fn build_vendored_geos() {
     // dynamic-CRT GEOS are not interchangeable and must never share a prefix.
     let key = BuildKey::new("geos")
         .dep(dep)
-        .mix(woodshed::crt_static().to_string());
+        .mix(woodshed::crt_static().to_string())
+        .linkage(linkage);
     let dirs = cache.build_dir(&key);
 
     if dirs.is_complete(INSTALLED) {
@@ -154,8 +172,7 @@ fn build_vendored_geos() {
         );
     } else {
         CmakeBuild::new(&source, &dirs)
-            // Static libraries only: nothing to ship alongside the executable.
-            .define("BUILD_SHARED_LIBS", "OFF")
+            .linkage(linkage)
             .define("BUILD_TESTING", "OFF")
             .define("BUILD_BENCHMARKS", "OFF")
             .define("BUILD_DOCUMENTATION", "OFF")
@@ -169,16 +186,18 @@ fn build_vendored_geos() {
             .unwrap_or_else(|error| {
                 fail(&format!(
                     "{error}\n\
-                     geoxi builds GEOS from source so the resulting binary is fully \
-                     self-contained; a working C++ compiler and CMake are required at \
-                     build time (not at run time). Install CMake, or enable the \
-                     `system` feature to link an already-installed GEOS instead."
+                     geoxi builds GEOS from source; a working C++ compiler and CMake \
+                     are required at build time (not at run time). Install CMake, or \
+                     enable the `system` feature to link an already-installed GEOS \
+                     instead."
                 ))
             });
     }
 
-    emit_link_directives(&dirs.prefix);
-    woodshed::link_cpp_runtime();
+    // geos_c depends on geos, so it is listed first for static linking.
+    emit_link(&dirs.prefix, &["geos_c", "geos"], linkage);
+    // A shared GEOS carries its own C++ runtime dependency.
+    link_cpp_runtime_for(linkage);
 }
 
 /// Fail early if the `geos-sys` binding version does not match the GEOS being
@@ -202,22 +221,6 @@ fn assert_bindings_match(pinned: &str) {
              Fix the `geos-sys` features in Cargo.toml to match the pinned version."
         ));
     }
-}
-
-/// Emit link directives for the built prefix.
-///
-/// Order matters for static linking: `geos_c` depends on `geos`, so it is
-/// listed first.
-fn emit_link_directives(prefix: &Path) {
-    for dir in ["lib", "lib64"] {
-        let dir = prefix.join(dir);
-        if dir.is_dir() {
-            println!("cargo:rustc-link-search=native={}", dir.display());
-        }
-    }
-    println!("cargo:rustc-link-lib=static=geos_c");
-    println!("cargo:rustc-link-lib=static=geos");
-    println!("cargo:includedir={}/include", prefix.display());
 }
 
 fn fail(message: &str) -> ! {

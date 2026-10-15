@@ -1,20 +1,29 @@
 [package]
 name = "geoxi"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.89"
 license = "Apache-2.0"
 description = "Geospatial geometry library backed by GEOS"
 readme = "README.md"
+links = "geoxi_geos"
 keywords = ["geos", "geometry", "geospatial", "gis", "topology"]
 categories = ["science::geo"]
 repository = "https://github.com/calebbuffa/geoxi"
 
 [features]
-# Default: build GEOS from pinned source and link it statically, so the
-# resulting binary is self-contained and ships anywhere. Requires CMake and a
-# C++ compiler at *build* time only.
-default = ["v3_14_0"]
+# Default: build GEOS from pinned source as a *shared* library. GEOS is
+# LGPL-2.1; dynamic linking lets users replace it, which is the simplest way
+# to ship closed-source software. Ship the GEOS shared libraries next to your
+# binary (their directory is exported to dependents' build scripts as
+# `DEP_GEOXI_GEOS_BINDIR` / `DEP_GEOXI_GEOS_LIBDIR`). Requires CMake and a C++
+# compiler at *build* time only.
+default = ["dynamic"]
+dynamic = ["v3_14_0"]
+# Opt-in: link GEOS statically for a self-contained binary. The binary is then
+# subject to the LGPL-2.1 relinking terms; see THIRD-PARTY-NOTICES.md.
+# Mutually exclusive with `dynamic` (use `default-features = false`).
+static = ["v3_14_0"]
 # Opt out of the self-contained build and link a GEOS already installed on the
 # machine, located via GEOS_DIR, vcpkg, or pkg-config. The resulting binary
 # then depends on that installation.
@@ -48,7 +57,7 @@ geo-types = { version = "0.7", optional = true }
 # Native provisioning: pinned + checksummed source, a cached build tree, CMake,
 # and system discovery. GEOS ships .tar.bz2, so that format is requested
 # explicitly and the default .tar.gz support is dropped.
-woodshed = { version = "0.1", default-features = false, features = [
+woodshed = { version = "0.2", default-features = false, features = [
     "manifest",
     "download",
     "tar-bz2",
