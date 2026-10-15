@@ -57,7 +57,7 @@ geo-types = { version = "0.7", optional = true }
 # Native provisioning: pinned + checksummed source, a cached build tree, CMake,
 # and system discovery. GEOS ships .tar.bz2, so that format is requested
 # explicitly and the default .tar.gz support is dropped.
-woodshed = { version = "0.2.1", default-features = false, features = [
+woodshed = { version = "0.2.2", default-features = false, features = [
     "manifest",
     "download",
     "tar-bz2",

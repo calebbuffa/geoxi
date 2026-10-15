@@ -35,7 +35,13 @@ See `THIRD-PARTY-NOTICES.md`. This is not legal advice.
 The directory holding the shared libraries is exported to dependents' build
 scripts as `DEP_GEOXI_GEOS_BINDIR` (Windows DLLs) and `DEP_GEOXI_GEOS_LIBDIR`,
 so a packaging step can copy them next to the executable. `cargo run` and
-`cargo test` find them automatically.
+`cargo test` find them automatically: the shared libraries are staged inside the
+target directory, the only place Cargo adds to the loader path.
+
+To ship an application, add `woodshed` as a build-dependency and call
+`woodshed::emit_exe_rpath()` from your `build.rs` (Linux and macOS executables then
+load libraries from their own directory; Windows always does), and distribute the
+executable together with the library files from the two directories above.
 
 ### Shipping a static binary
 
