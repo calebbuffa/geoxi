@@ -6,18 +6,41 @@ Ergonomic geometry API on top of GEOS.
 
 ```toml
 [dependencies]
-geoxi = "0.1"
+geoxi = "0.2"
 ```
 
-That's it. `geoxi` downloads, checksum-verifies, and statically builds GEOS
-itself, so `cargo build` works on a clean machine with no preinstalled GEOS, no
-`pkg-config`, and no vcpkg. CMake and a C++ compiler are needed at *build* time
-only.
+`geoxi` downloads, checksum-verifies, and builds GEOS itself, so `cargo build`
+works on a clean machine with no preinstalled GEOS, `pkg-config`, or vcpkg.
+CMake and a C++ compiler are needed at _build_ time only.
 
-### Shipping a binary
+### Licensing: dynamic vs. static
 
-GEOS is C++, so statically linking GEOS alone does not make an executable
-portable - the C++ *runtime* is a separate dependency. On Windows an ordinary
+GEOS is licensed under **LGPL-2.1**; `geoxi` itself is Apache-2.0. Which way GEOS
+is linked decides what you owe when you distribute a binary:
+
+| Feature             | Linking                                                        | Consequence                                                                                                                                       |
+| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dynamic` (default) | GEOS built as a shared library (`geos_c.dll` / `libgeos_c.so`) | Ship the shared libraries next to your binary with the LGPL text and a source offer. Users can swap GEOS; your own code stays under your licence. |
+| `static`            | GEOS linked into your binary                                   | The LGPL's relinking terms apply to the whole binary. Intended for open-source or internal use. A build warning is printed.                       |
+| `system`            | An installed GEOS found via `GEOS_DIR`, vcpkg, or pkg-config   | Same as whatever that installation is (shared is recommended).                                                                                    |
+
+`static` and `dynamic` are mutually exclusive:
+
+```toml
+geoxi = { version = "0.2", default-features = false, features = ["static"] }
+```
+
+See `THIRD-PARTY-NOTICES.md`. This is not legal advice.
+
+The directory holding the shared libraries is exported to dependents' build
+scripts as `DEP_GEOXI_GEOS_BINDIR` (Windows DLLs) and `DEP_GEOXI_GEOS_LIBDIR`,
+so a packaging step can copy them next to the executable. `cargo run` and
+`cargo test` find them automatically.
+
+### Shipping a static binary
+
+(Applies to the `static` feature.) GEOS is C++, so statically linking GEOS alone does not make an executable
+portable - the C++ _runtime_ is a separate dependency. On Windows an ordinary
 release build still requires `msvcp140.dll` and `vcruntime140.dll` from the MSVC
 redistributable on the target machine.
 
@@ -49,7 +72,7 @@ GEOS outside `OUT_DIR` so it survives `cargo clean` and `build.rs` edits.
 Enable the `system` feature to link an existing installation instead:
 
 ```toml
-geoxi = { version = "0.1", features = ["system"] }
+geoxi = { version = "0.2", features = ["system"] }
 ```
 
 The build script looks at `GEOS_DIR`, then vcpkg, then pkg-config, and falls
@@ -58,29 +81,29 @@ because it reintroduces the deployment dependency the default avoids.
 
 ## Layout
 
-| Module | Contents |
-| --- | --- |
-| `error` | `Error` and the crate-wide `Result` alias |
-| `types` | `Coord`, `Coord3`, `Bounds`, `GeometryType`, `CoordType` |
-| `context` | `Context`, the GEOS thread handle |
-| `geometry` | `Geometry`, the owned handle: lifecycle and I/O |
-| `options` | Parameter structs such as `BufferOptions` |
-| `prepared` | `PreparedGeometry` for repeated predicate evaluation |
-| `array` | `GeometryArray` batch operations |
-| `strtree` | `STRtree` spatial index |
-| `constructors` | Constructors and WKT/WKB/GeoJSON I/O |
-| `measure` | Area, length, and distance measurements |
-| `predicates` | Binary spatial predicates |
-| `affinity` | Affine transforms and coordinate rewriting |
-| `ops` | Unary ops, set ops, linear referencing, coverages |
-| `topology` | Splitting, orientation, validation, equality |
-| `accessors` | Scalar accessors |
-| `coords` | Coordinate extraction and GeoArrow ragged arrays |
-| `crs` | Reprojection against any coordinate transform engine |
-| `three_d` | Native 3D algorithms GEOS does not provide |
-| `coord_like` | The `CoordLike` trait: use any coordinate type anywhere |
-| `buffers` | Interleaved `f64` buffers, the zero-copy bulk path |
-| `geo_types` | Whole-geometry `geo-types` conversion (feature-gated) |
+| Module         | Contents                                                 |
+| -------------- | -------------------------------------------------------- |
+| `error`        | `Error` and the crate-wide `Result` alias                |
+| `types`        | `Coord`, `Coord3`, `Bounds`, `GeometryType`, `CoordType` |
+| `context`      | `Context`, the GEOS thread handle                        |
+| `geometry`     | `Geometry`, the owned handle: lifecycle and I/O          |
+| `options`      | Parameter structs such as `BufferOptions`                |
+| `prepared`     | `PreparedGeometry` for repeated predicate evaluation     |
+| `array`        | `GeometryArray` batch operations                         |
+| `strtree`      | `STRtree` spatial index                                  |
+| `constructors` | Constructors and WKT/WKB/GeoJSON I/O                     |
+| `measure`      | Area, length, and distance measurements                  |
+| `predicates`   | Binary spatial predicates                                |
+| `affinity`     | Affine transforms and coordinate rewriting               |
+| `ops`          | Unary ops, set ops, linear referencing, coverages        |
+| `topology`     | Splitting, orientation, validation, equality             |
+| `accessors`    | Scalar accessors                                         |
+| `coords`       | Coordinate extraction and GeoArrow ragged arrays         |
+| `crs`          | Reprojection against any coordinate transform engine     |
+| `three_d`      | Native 3D algorithms GEOS does not provide               |
+| `coord_like`   | The `CoordLike` trait: use any coordinate type anywhere  |
+| `buffers`      | Interleaved `f64` buffers, the zero-copy bulk path       |
+| `geo_types`    | Whole-geometry `geo-types` conversion (feature-gated)    |
 
 Public items are re-exported at the crate root, so `use geoxi::Geometry` works
 regardless of which module an item lives in. `geoxi::prelude::*` carries the
@@ -186,10 +209,10 @@ Every constructor is generic over `CoordLike`, and every coordinate reader is
 too. Tuples, arrays, `Coord`, `Coord3`, and `Vec3` implement it out of the box;
 these features add more:
 
-| Feature | Types |
-| --- | --- |
-| `glam` | `DVec2`, `DVec3` |
-| `nalgebra` | `Point2`/`Point3`/`Vector2`/`Vector3<f64>` |
+| Feature     | Types                                                                           |
+| ----------- | ------------------------------------------------------------------------------- |
+| `glam`      | `DVec2`, `DVec3`                                                                |
+| `nalgebra`  | `Point2`/`Point3`/`Vector2`/`Vector3<f64>`                                      |
 | `geo-types` | `geo_types::Coord`, `geo_types::Point`, plus whole-geometry `from_geo`/`to_geo` |
 
 ```rust
