@@ -81,10 +81,12 @@ impl Geometry {
     pub fn from_geojson(geojson: &str) -> Result<Self> {
         let ctx = Context::current()?;
         let geojson = CString::new(geojson)?;
-        let reader = NonNull::new(unsafe { GEOSGeoJSONReader_create() })
+        let reader = NonNull::new(unsafe { GEOSGeoJSONReader_create_r(ctx.raw()) })
             .ok_or(Error::Null("creating GeoJSON reader"))?;
-        let ptr = unsafe { GEOSGeoJSONReader_readGeometry(reader.as_ptr(), geojson.as_ptr()) };
-        unsafe { GEOSGeoJSONReader_destroy(reader.as_ptr()) };
+        let ptr = unsafe {
+            GEOSGeoJSONReader_readGeometry_r(ctx.raw(), reader.as_ptr(), geojson.as_ptr())
+        };
+        unsafe { GEOSGeoJSONReader_destroy_r(ctx.raw(), reader.as_ptr()) };
         unsafe { Self::from_raw(ctx, ptr) }.map_err(|_| Error::Null("reading GeoJSON"))
     }
 
@@ -292,17 +294,19 @@ impl Geometry {
     }
 
     pub fn to_geojson(&self, indent: Option<i32>) -> Result<String> {
-        let writer = NonNull::new(unsafe { GEOSGeoJSONWriter_create() })
+        let ctx = self.ctx.raw();
+        let writer = NonNull::new(unsafe { GEOSGeoJSONWriter_create_r(ctx) })
             .ok_or(Error::Null("creating GeoJSON writer"))?;
-        unsafe { GEOSGeoJSONWriter_setOutputDimension(writer.as_ptr(), 3) };
+        unsafe { GEOSGeoJSONWriter_setOutputDimension_r(ctx, writer.as_ptr(), 3) };
         let ptr = unsafe {
-            GEOSGeoJSONWriter_writeGeometry(
+            GEOSGeoJSONWriter_writeGeometry_r(
+                ctx,
                 writer.as_ptr(),
                 self.ptr.as_ptr(),
                 indent.unwrap_or(-1),
             )
         };
-        unsafe { GEOSGeoJSONWriter_destroy(writer.as_ptr()) };
+        unsafe { GEOSGeoJSONWriter_destroy_r(ctx, writer.as_ptr()) };
         self.take_string(ptr, "writing GeoJSON")
     }
 

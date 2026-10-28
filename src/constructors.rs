@@ -50,3 +50,15 @@ pub fn to_wkb(geometry: &Geometry) -> Result<Vec<u8>> {
 pub fn to_geojson(geometry: &Geometry, indent: Option<i32>) -> Result<String> {
     geometry.to_geojson(indent)
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn geojson_round_trips() {
+        let poly = super::from_wkt("POLYGON ((0 0, 1 0, 1 1, 0 0))").unwrap();
+        let json = super::to_geojson(&poly, None).unwrap();
+        assert!(json.contains("\"Polygon\""), "{json}");
+        let back = super::from_geojson(&json).unwrap();
+        assert_eq!(super::to_wkt(&back).unwrap(), super::to_wkt(&poly).unwrap());
+    }
+}
