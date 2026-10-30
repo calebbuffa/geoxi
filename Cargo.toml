@@ -19,32 +19,32 @@ repository = "https://github.com/calebbuffa/geoxi"
 # `DEP_GEOXI_GEOS_BINDIR` / `DEP_GEOXI_GEOS_LIBDIR`). Requires CMake and a C++
 # compiler at *build* time only.
 default = ["dynamic"]
-dynamic = ["v3_14_0"]
+dynamic = ["v3_15_0"]
 # Opt-in: link GEOS statically for a self-contained binary. The binary is then
 # subject to the LGPL-2.1 relinking terms; see THIRD-PARTY-NOTICES.md.
 # Mutually exclusive with `dynamic` (use `default-features = false`).
-static = ["v3_14_0"]
+static = ["v3_15_0"]
 # Opt out of the self-contained build and link a GEOS already installed on the
 # machine, located via GEOS_DIR, vcpkg, or pkg-config. The resulting binary
 # then depends on that installation.
-system = ["v3_14_0"]
+system = ["v3_15_0"]
 # Optional interop. `glam` and `nalgebra` are zero-copy; `geo-types` is not.
 glam = ["dep:glam"]
 nalgebra = ["dep:nalgebra"]
 geo-types = ["dep:geo-types"]
 # The GEOS API level geoxi targets. This is not a user knob: it must match the
-# version pinned in native/versions.toml, which build.rs enforces. It exists as
+# version pinned in native/woodshed.toml, which build.rs enforces. It exists as
 # a feature only because that is how `geos-sys` selects its bindings.
-v3_14_0 = ["geos-sys/v3_14_0"]
+v3_15_0 = ["geos-sys/v3_15_0"]
 
 [dependencies]
 # `dox` makes geos-sys emit declarations only and no link directives; geoxi's
 # own build script provisions and links GEOS so it can control the C++ runtime.
-# The version feature must match the GEOS pinned in native/versions.toml -
+# The version feature must match the GEOS pinned in native/woodshed.toml -
 # build.rs asserts this.
-geos-sys = { version = "2.0.9", default-features = false, features = [
+geos-sys = { version = "2.0.10", default-features = false, features = [
     "dox",
-    "v3_14_0",
+    "v3_15_0",
 ] }
 libc = "0.2"
 thiserror = "2.0"
@@ -57,7 +57,7 @@ geo-types = { version = "0.7", optional = true }
 # Native provisioning: pinned + checksummed source, a cached build tree, CMake,
 # and system discovery. GEOS ships .tar.bz2, so that format is requested
 # explicitly and the default .tar.gz support is dropped.
-woodshed = { version = "0.2.2", default-features = false, features = [
+woodshed = { version = "0.4.0", default-features = false, features = [
     "manifest",
     "download",
     "tar-bz2",

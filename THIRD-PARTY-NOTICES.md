@@ -6,12 +6,14 @@ following native software. This file is informational, not legal advice.
 ## GEOS - LGPL-2.1
 
 - Project: https://libgeos.org
-- Version: see `native/versions.toml` (source archive and SHA-256 are pinned)
+- Version: see `native/woodshed.toml` and `native/woodshed.lock` (source archive
+  and SHA-256 are pinned)
 - Licence: GNU Lesser General Public License v2.1,
   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 
 GEOS source is unmodified and is downloaded from the URL in
-`native/versions.toml`. If you redistribute a binary that contains GEOS you must:
+`native/woodshed.toml` and `native/woodshed.lock`. If you redistribute a binary
+that contains GEOS you must:
 
 1. Include the LGPL-2.1 text and GEOS's copyright notices.
 2. Offer the corresponding GEOS source (the pinned URL above satisfies this for

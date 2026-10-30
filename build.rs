@@ -35,7 +35,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 use woodshed::{
-    BuildKey, Cache, CmakeBuild, Linkage, Manifest, emit_link, link_cpp_runtime_for, probe,
+    BuildKey, Cache, CmakeBuild, Linkage, emit_link, link_cpp_runtime_for, probe, project::Project,
 };
 
 /// Files that must exist in an install prefix for a build to count as
@@ -45,7 +45,8 @@ const INSTALLED: [&str; 2] = ["include/geos_c.h", "lib"];
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=native/versions.toml");
+    println!("cargo:rerun-if-changed=native/woodshed.toml");
+    println!("cargo:rerun-if-changed=native/woodshed.lock");
 
     // docs.rs builds in a network-isolated sandbox and only needs the crate to
     // type-check as an rlib, so skip provisioning rather than failing on the
@@ -144,11 +145,15 @@ fn link_from_prefix(prefix: &Path) {
 /// Download, verify, extract, configure, build, and link GEOS from source.
 fn build_vendored_geos(linkage: Linkage) {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let manifest = Manifest::load_default(&manifest_dir)
-        .unwrap_or_else(|error| fail(&format!("cannot load native/versions.toml: {error}")));
-    let dep = manifest
+    let project = Project::load(manifest_dir.join("native/woodshed.toml"))
+        .unwrap_or_else(|error| fail(&format!("cannot load native/woodshed.toml: {error}")));
+    let lock = project
+        .locked()
+        .unwrap_or_else(|error| fail(&format!("cannot validate native/woodshed.lock: {error}")));
+    let dep = lock
+        .sources
         .get("geos")
-        .unwrap_or_else(|error| fail(&error.to_string()));
+        .unwrap_or_else(|| fail("native/woodshed.lock does not contain geos"));
 
     assert_bindings_match(&dep.version);
 
@@ -214,7 +219,7 @@ fn assert_bindings_match(pinned: &str) {
     };
     if env::var_os(format!("CARGO_FEATURE_V{major}_{minor}_0")).is_none() {
         fail(&format!(
-            "native/versions.toml pins GEOS {pinned}, but the matching \
+            "native/woodshed.toml pins GEOS {pinned}, but the matching \
              `geos-sys` binding feature (v{major}_{minor}_0) is not enabled.\n\
              The declared bindings and the compiled library must agree or the \
              build fails at link time with unresolved GEOS symbols.\n\

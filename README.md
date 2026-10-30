@@ -202,8 +202,8 @@ let local = foreign.rehome()?;  // now shares this thread's context
 
 ## Features
 
-- `v3_14_0` (default) - the GEOS entry points `geoxi` binds. `geoxi` provisions
-  and builds GEOS 3.14.1 itself; this feature must match that version, and the
+- `v3_15_0` (default) - the GEOS entry points `geoxi` binds. `geoxi` provisions
+  and builds GEOS 3.15.0 itself; this feature must match that version, and the
   build script asserts it does.
 - `system` - link an already-installed GEOS instead of building one, located
   via `GEOS_DIR`, vcpkg, or pkg-config. Opt-in; see "Linking GEOS" above.

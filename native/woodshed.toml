@@ -1,0 +1,7 @@
+# GEOS is an archive-only source. `woodshed.lock` records the verified checksum;
+# update it with `woodshed lock --manifest native/woodshed.toml`.
+
+[dependencies.geos]
+version = "3.15.0"
+url = "https://download.osgeo.org/geos/geos-{version}.tar.bz2"
+markers = ["CMakeLists.txt", "capi/geos_c.h.in"]
