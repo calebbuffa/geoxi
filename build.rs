@@ -169,6 +169,8 @@ fn build_vendored_geos(linkage: Linkage) {
         .mix(woodshed::crt_static().to_string())
         .linkage(linkage);
     let dirs = cache.build_dir(&key);
+    // Independent Cargo target directories still share this native build tree.
+    let _build_lock = dirs.lock().unwrap_or_else(|error| fail(&error.to_string()));
 
     if dirs.is_complete(INSTALLED) {
         eprintln!(
